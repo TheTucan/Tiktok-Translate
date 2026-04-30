@@ -9,157 +9,144 @@
   <meta name="theme-color" content="#000000"/>
   <link rel="manifest" href="manifest.json"/>
   <title>TikTok Live Translator</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet"/>
   <style>
     :root {
       --bg: #000;
-      --surface: #111;
-      --border: #1e1e1e;
+      --surface: #161616;
+      --border: #252525;
       --red: #fe2c55;
       --green: #1db954;
-      --teal: #25f4ee;
       --text: #fff;
-      --muted: #555;
-      --safe-top: env(safe-area-inset-top, 0px);
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --muted: #666;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body {
       height: 100%; background: var(--bg); color: var(--text);
-      font-family: 'DM Sans', sans-serif; overflow: hidden;
-      touch-action: manipulation;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden; touch-action: manipulation;
+    }
+    #app {
+      height: 100dvh;
+      display: flex; flex-direction: column;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    /* ── MODES ── */
-    /* splitscreen = compact strip mode */
-    /* full = expanded settings */
-    #app { height: 100dvh; display: flex; flex-direction: column; }
-
-    /* ══════════════════════════════
-       COMPACT BAR (always visible)
-    ══════════════════════════════ */
-    .compact-bar {
-      display: flex; align-items: center; gap: 8px;
+    /* ── LANG ROW ── always visible at top */
+    .lang-row {
+      display: flex; align-items: center; gap: 6px;
       padding: 8px 10px;
-      padding-top: calc(8px + var(--safe-top));
-      background: #000; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    #listenBtn {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: var(--red); border: none;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; cursor: pointer; transition: background 0.15s, transform 0.1s;
-    }
-    #listenBtn:active { transform: scale(0.93); }
-    #listenBtn.live { background: var(--green); }
-    .btn-icon { font-size: 18px; line-height: 1; }
-    #listenBtn.live .btn-icon { animation: none; }
-
-    .sub-pill {
-      flex: 1; background: #0a0a0a;
-      border: 1px solid var(--border); border-radius: 12px;
-      padding: 8px 12px; min-height: 44px;
-      display: flex; align-items: center;
-      position: relative; overflow: hidden;
-    }
-    .sub-pill::before {
-      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-      width: 3px; background: var(--red); border-radius: 3px 0 0 3px;
-      opacity: 0; transition: opacity 0.2s;
-    }
-    .sub-pill.live::before { opacity: 1; background: var(--green); }
-    #subText {
-      font-size: 15px; font-weight: 600; line-height: 1.35;
-      color: #444; width: 100%;
-    }
-    #subText.live { color: #fff; }
-    #subText.pending { color: #444; font-weight: 400; font-style: italic; font-size: 13px; }
-
-    .settings-btn {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--muted); font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
-    }
-    .settings-btn.open { background: #1a1a1a; color: var(--teal); border-color: #2a3a3a; }
-    .settings-btn:active { transform: scale(0.93); }
-
-    /* ══════════════════════════════
-       SETTINGS DRAWER
-    ══════════════════════════════ */
-    #drawer {
-      background: #080808; border-bottom: 1px solid var(--border);
-      flex-shrink: 0; overflow: hidden;
-      max-height: 0; transition: max-height 0.3s ease;
-    }
-    #drawer.open { max-height: 400px; }
-    .drawer-inner { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
-
-    /* lang row */
-    .lang-row { display: flex; align-items: flex-end; gap: 8px; }
-    .lang-wrap { flex: 1; }
-    .lang-wrap label {
-      display: block; font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--muted); margin-bottom: 4px;
-    }
     select {
-      width: 100%; background: var(--surface); color: var(--text);
+      flex: 1; background: #222; color: var(--text);
       border: 1px solid var(--border); border-radius: 8px;
-      padding: 9px 10px; font-size: 13px;
-      font-family: 'DM Sans', sans-serif;
-      cursor: pointer; appearance: none;
+      padding: 8px 10px; font-size: 13px; cursor: pointer;
+      appearance: none; text-align: center;
     }
     select:focus { outline: none; border-color: var(--red); }
     .swap-btn {
       width: 36px; height: 36px; border-radius: 50%;
-      background: var(--surface); border: 1px solid var(--border);
-      color: var(--muted); font-size: 16px; cursor: pointer;
+      background: #222; border: 1px solid var(--border);
+      color: var(--muted); font-size: 18px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: all 0.15s; margin-bottom: 1px;
+      flex-shrink: 0; transition: all 0.15s;
     }
-    .swap-btn:active { color: var(--red); transform: rotate(180deg); }
+    .swap-btn:active { color: var(--red); transform: rotate(180deg); background: #2a2a2a; }
 
-    /* size row */
-    .size-row { display: flex; align-items: center; gap: 8px; }
-    .size-lbl { font-size: 10px; color: var(--muted); }
-    .sz-group { display: flex; gap: 4px; }
+    /* ── BIG LISTEN BUTTON ── */
+    .listen-wrap {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #listenBtn {
+      flex: 1; padding: 13px 20px;
+      border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background 0.15s, transform 0.08s;
+      background: var(--red); color: #fff;
+    }
+    #listenBtn:active { transform: scale(0.97); }
+    #listenBtn.live {
+      background: var(--green);
+      box-shadow: 0 0 20px rgba(29,185,84,0.35);
+    }
+    .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: rgba(255,255,255,0.5); flex-shrink: 0;
+    }
+    #listenBtn.live .dot {
+      background: #fff;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.8)} }
+
+    /* status under the button */
+    .listen-status {
+      font-size: 10px; color: var(--muted); text-align: center;
+      padding: 0 12px 8px;
+      flex-shrink: 0;
+    }
+    .listen-status.live { color: var(--green); }
+
+    /* ── SUBTITLE ZONE ── */
+    .sub-zone {
+      background: #050505;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .sub-label {
+      position: absolute; top: 7px; left: 11px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+      color: var(--muted); text-transform: uppercase;
+    }
+    .sub-label.live { color: var(--green); }
+    #subText {
+      font-size: 18px; font-weight: 600; line-height: 1.4;
+      color: #444; transition: font-size 0.1s;
+    }
+    #subText.live { color: #fff; }
+    #subText.pending { color: #444; font-style: italic; font-size: 13px; font-weight: 400; }
+
+    /* ── BOTTOM CONTROLS ── */
+    .bottom-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+    .size-group { display: flex; gap: 4px; }
     .sz {
-      background: var(--surface); border: 1px solid var(--border);
+      background: #222; border: 1px solid var(--border);
       color: var(--muted); border-radius: 6px;
-      padding: 5px 11px; font-size: 11px; cursor: pointer;
-      font-family: 'DM Mono', monospace; transition: all 0.1s;
+      padding: 5px 10px; font-size: 11px; cursor: pointer;
+      transition: all 0.1s;
     }
-    .sz.on { border-color: var(--red); color: var(--red); background: #150509; }
-    .sz:active { transform: scale(0.95); }
-
-    /* action row */
-    .action-row { display: flex; gap: 8px; }
+    .sz.on { border-color: var(--red); color: var(--red); background: #1a0509; }
+    .sz:active { transform: scale(0.93); }
+    .spacer { flex: 1; }
     .act-btn {
-      flex: 1; padding: 9px; background: var(--surface);
-      border: 1px solid var(--border); border-radius: 8px;
-      color: var(--muted); font-size: 12px; cursor: pointer;
-      font-family: 'DM Sans', sans-serif; transition: all 0.1s;
+      padding: 6px 12px;
+      background: #222; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 12px; cursor: pointer; transition: all 0.1s;
     }
-    .act-btn:active { background: #1a1a1a; color: #fff; transform: scale(0.97); }
+    .act-btn:active { color: #fff; background: #2a2a2a; }
 
-    /* stats */
-    .stats-row {
-      display: flex; gap: 6px;
-    }
-    .stat {
-      flex: 1; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 7px; padding: 5px 8px; text-align: center;
-    }
-    .slbl { font-size: 8px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; }
-    .sval { font-size: 15px; font-weight: 700; font-family: 'DM Mono', monospace; }
-
-    /* ══════════════════════════════
-       TRANSCRIPT (scrollable fill)
-    ══════════════════════════════ */
-    .transcript-area {
+    /* ── TRANSCRIPT ── */
+    .transcript {
       flex: 1; display: grid; grid-template-columns: 1fr 1fr;
       gap: 6px; padding: 8px 10px;
       min-height: 0; overflow: hidden;
@@ -177,117 +164,101 @@
     }
     .entry {
       font-size: 11px; line-height: 1.5; color: #bbb;
-      background: #181818; border-radius: 5px; padding: 4px 6px;
+      background: #1e1e1e; border-radius: 5px; padding: 4px 6px;
     }
     .entry.dim { color: #444; font-style: italic; background: none; padding: 2px 4px; }
 
-    /* status */
-    #statusTxt {
-      flex-shrink: 0; padding: 4px 14px calc(4px + var(--safe-bottom));
-      font-size: 10px; color: #333; text-align: center;
-      background: #000;
+    /* stats bar */
+    .stats-bar {
+      display: flex; gap: 0;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0; background: var(--surface);
     }
-    #errBar {
-      flex-shrink: 0; margin: 0 10px 6px;
-      background: #1a0505; border: 1px solid #4d1010;
-      border-radius: 8px; padding: 7px 12px;
-      font-size: 11px; color: #ff7070; display: none;
+    .stat {
+      flex: 1; padding: 5px 8px; text-align: center;
+      border-right: 1px solid var(--border);
     }
+    .stat:last-child { border-right: none; }
+    .slbl { font-size: 8px; color: #444; text-transform: uppercase; letter-spacing: 0.07em; }
+    .sval { font-size: 14px; font-weight: 700; }
 
-    /* recording pulse on sub-pill */
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
-    .rec-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--green); margin-right: 6px; flex-shrink: 0;
-      display: none;
+    #errBar {
+      margin: 6px 10px 0;
+      background: #1a0505; border: 1px solid #4d1010;
+      border-radius: 8px; padding: 8px 12px;
+      font-size: 11px; color: #ff7070; display: none; flex-shrink: 0;
     }
-    .rec-dot.live { display: block; animation: blink 1.2s infinite; }
   </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- ── COMPACT BAR ── -->
-  <div class="compact-bar">
-    <button id="listenBtn" title="Start/Stop">
-      <span class="btn-icon" id="btnIcon">▶</span>
+  <!-- LANGUAGE ROW -->
+  <div class="lang-row">
+    <select id="srcLang">
+      <option value="pt" selected>🇧🇷 Portuguese</option>
+      <option value="zh-CN">🇨🇳 Mandarin</option>
+      <option value="ko">🇰🇷 Korean</option>
+      <option value="ja">🇯🇵 Japanese</option>
+      <option value="es">🇪🇸 Spanish</option>
+      <option value="th">🇹🇭 Thai</option>
+      <option value="vi">🇻🇳 Vietnamese</option>
+      <option value="id">🇮🇩 Indonesian</option>
+      <option value="ar">🇸🇦 Arabic</option>
+      <option value="ru">🇷🇺 Russian</option>
+      <option value="fr">🇫🇷 French</option>
+      <option value="de">🇩🇪 German</option>
+      <option value="hi">🇮🇳 Hindi</option>
+      <option value="tl">🇵🇭 Filipino</option>
+      <option value="tr">🇹🇷 Turkish</option>
+      <option value="it">🇮🇹 Italian</option>
+    </select>
+    <button class="swap-btn" id="swapBtn">⇄</button>
+    <select id="tgtLang">
+      <option value="en" selected>🇺🇸 English</option>
+      <option value="pt">🇧🇷 Portuguese</option>
+      <option value="es">🇪🇸 Spanish</option>
+      <option value="fr">🇫🇷 French</option>
+      <option value="de">🇩🇪 German</option>
+      <option value="zh-CN">🇨🇳 Chinese</option>
+      <option value="ko">🇰🇷 Korean</option>
+      <option value="ja">🇯🇵 Japanese</option>
+      <option value="ru">🇷🇺 Russian</option>
+    </select>
+  </div>
+
+  <!-- BIG START BUTTON -->
+  <div class="listen-wrap">
+    <button id="listenBtn">
+      <span class="dot"></span>
+      <span id="btnTxt">TAP TO START TRANSLATING</span>
     </button>
-    <div class="sub-pill" id="subPill">
-      <span class="rec-dot" id="recDot"></span>
-      <span id="subText">Tap ▶ to start</span>
-    </div>
-    <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
   </div>
-
-  <!-- ── SETTINGS DRAWER ── -->
-  <div id="drawer">
-    <div class="drawer-inner">
-      <div class="lang-row">
-        <div class="lang-wrap">
-          <label>Stream language</label>
-          <select id="srcLang">
-            <option value="pt" selected>Portuguese (BR)</option>
-            <option value="zh-CN">Mandarin Chinese</option>
-            <option value="ko">Korean</option>
-            <option value="ja">Japanese</option>
-            <option value="es">Spanish</option>
-            <option value="th">Thai</option>
-            <option value="vi">Vietnamese</option>
-            <option value="id">Indonesian</option>
-            <option value="ar">Arabic</option>
-            <option value="ru">Russian</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="hi">Hindi</option>
-            <option value="tl">Filipino</option>
-            <option value="tr">Turkish</option>
-            <option value="it">Italian</option>
-          </select>
-        </div>
-        <button class="swap-btn" id="swapBtn">⇄</button>
-        <div class="lang-wrap">
-          <label>Translate to</label>
-          <select id="tgtLang">
-            <option value="en" selected>English</option>
-            <option value="pt">Portuguese</option>
-            <option value="es">Spanish</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="zh-CN">Chinese</option>
-            <option value="ko">Korean</option>
-            <option value="ja">Japanese</option>
-            <option value="ru">Russian</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="size-row">
-        <span class="size-lbl">Subtitle size</span>
-        <div class="sz-group">
-          <button class="sz" data-s="13">S</button>
-          <button class="sz on" data-s="15">M</button>
-          <button class="sz" data-s="18">L</button>
-          <button class="sz" data-s="22">XL</button>
-        </div>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
-        <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
-        <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
-      </div>
-
-      <div class="action-row">
-        <button class="act-btn" id="saveBtn">💾 Save transcript</button>
-        <button class="act-btn" id="clearBtn">🗑 Clear</button>
-      </div>
-    </div>
-  </div>
+  <div class="listen-status" id="listenStatus">Not listening</div>
 
   <div id="errBar"></div>
 
-  <!-- ── TRANSCRIPT ── -->
-  <div class="transcript-area">
+  <!-- SUBTITLE -->
+  <div class="sub-zone">
+    <span class="sub-label" id="subLabel">TRANSLATION</span>
+    <p id="subText">Translation will appear here</p>
+  </div>
+
+  <!-- SIZE + ACTIONS -->
+  <div class="bottom-row">
+    <div class="size-group">
+      <button class="sz" data-s="14">S</button>
+      <button class="sz on" data-s="18">M</button>
+      <button class="sz" data-s="24">L</button>
+      <button class="sz" data-s="30">XL</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="act-btn" id="saveBtn">Save</button>
+    <button class="act-btn" id="clearBtn">Clear</button>
+  </div>
+
+  <!-- TRANSCRIPT -->
+  <div class="transcript">
     <div class="panel">
       <div class="plabel">Original</div>
       <div id="origContent"></div>
@@ -298,8 +269,14 @@
     </div>
   </div>
 
-  <div id="statusTxt">Portuguese → English · tap ▶ to begin</div>
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
+    <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
+    <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
+  </div>
+
 </div>
-<script src="app.js"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
