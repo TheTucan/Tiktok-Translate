@@ -1,4 +1,4 @@
-// v3 - clear button states, always-visible lang selector
+// v4 - faster: interim translation + debounce + dual API fallback
 const listenBtn = document.getElementById('listenBtn');
 const btnTxt = document.getElementById('btnTxt');
 const listenStatus = document.getElementById('listenStatus');
@@ -22,6 +22,11 @@ let interimOrig = null, interimTrans = null;
 let pairs = [], wordCount = 0, lineCount = 0;
 let sessionStart = null, timerInt = null, fontSize = 18;
 
+// ── Debounce timer for interim translation ──
+let interimDebounce = null;
+let lastInterimText = '';
+let lastTranslatedInterim = '';
+
 // ── Restore prefs ──
 const saved = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
 if (saved.srcLang) srcLang.value = saved.srcLang;
@@ -39,7 +44,6 @@ function updateTransLabel() {
   transLabel.textContent = tgtLang.options[tgtLang.selectedIndex].text;
 }
 
-// ── Swap ──
 swapBtn.addEventListener('click', () => {
   const s = srcLang.value, t = tgtLang.value;
   if ([...srcLang.options].find(o => o.value === t)) srcLang.value = t;
@@ -48,7 +52,6 @@ swapBtn.addEventListener('click', () => {
   if (isListening) restartRecog();
 });
 
-// ── Size ──
 document.querySelectorAll('.sz').forEach(btn => {
   btn.addEventListener('click', () => { setActiveSize(parseInt(btn.dataset.s)); savePrefs(); });
 });
@@ -60,19 +63,56 @@ function setActiveSize(s) {
 
 function showErr(msg) { errBar.style.display = msg ? 'block' : 'none'; errBar.textContent = msg || ''; }
 
+// ── FAST TRANSLATION: tries Google unofficial first, falls back to MyMemory ──
 async function translate(text, from, to) {
   if (!text.trim()) return '';
   const f = from.split('-')[0], t = to.split('-')[0];
   if (f === t) return text;
+
+  // Try Google Translate unofficial (fastest)
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${f}&tl=${t}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data[0]) {
+      return data[0].map(x => x[0]).filter(Boolean).join('');
+    }
+  } catch {}
+
+  // Fallback: MyMemory
   try {
     const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${f}|${t}`);
     const data = await res.json();
     if (data.responseStatus === 200 && data.responseData) return data.responseData.translatedText;
-    return '[unavailable]';
-  } catch { return '[network error]'; }
+  } catch {}
+
+  return '[unavailable]';
+}
+
+// ── Show interim translation in subtitle immediately ──
+function translateInterim(text) {
+  if (!text || text === lastInterimText) return;
+  lastInterimText = text;
+  clearTimeout(interimDebounce);
+  // Debounce: wait 600ms of no new interim text before translating
+  interimDebounce = setTimeout(async () => {
+    if (!isListening) return;
+    const tr = await translate(text, srcLang.value, tgtLang.value);
+    if (tr && tr !== lastTranslatedInterim && isListening) {
+      lastTranslatedInterim = tr;
+      subText.className = 'pending';
+      subText.textContent = tr;
+      subText.style.fontSize = fontSize + 'px';
+      if (interimTrans) interimTrans.textContent = tr;
+    }
+  }, 600);
 }
 
 function addEntry(orig, trans) {
+  clearTimeout(interimDebounce);
+  lastInterimText = '';
+  lastTranslatedInterim = '';
+
   const o = document.createElement('div'); o.className = 'entry'; o.textContent = orig;
   origContent.appendChild(o);
   const t = document.createElement('div'); t.className = 'entry'; t.textContent = trans;
@@ -106,10 +146,14 @@ function buildRecog() {
     return null;
   }
   const r = new SR();
-  r.continuous = true; r.interimResults = true; r.lang = srcLang.value;
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = srcLang.value;
+  // maxAlternatives = 1 keeps it lean
+  r.maxAlternatives = 1;
 
   r.onstart = () => {
-    listenStatus.textContent = '🟢 Listening — turn up volume so mic hears the stream';
+    listenStatus.textContent = '🟢 Listening — turn up volume';
     listenStatus.className = 'listen-status live';
   };
 
@@ -122,19 +166,39 @@ function buildRecog() {
         if (txt) {
           if (interimOrig) { interimOrig.remove(); interimOrig = null; }
           if (interimTrans) { interimTrans.remove(); interimTrans = null; }
-          const tEl = document.createElement('div'); tEl.className = 'entry dim'; tEl.textContent = '…';
-          transContent.appendChild(tEl);
-          subText.className = 'pending'; subText.textContent = 'Translating…';
-          translate(txt, srcLang.value, tgtLang.value).then(tr => { tEl.remove(); addEntry(txt, tr); });
+          // Translate final result immediately
+          translate(txt, srcLang.value, tgtLang.value).then(tr => addEntry(txt, tr));
         }
-      } else { interim += res[0].transcript; }
+      } else {
+        interim += res[0].transcript;
+      }
     }
+
     if (interim) {
-      if (!interimOrig) { interimOrig = document.createElement('div'); interimOrig.className = 'entry dim'; origContent.appendChild(interimOrig); }
+      // Show raw interim in original panel
+      if (!interimOrig) {
+        interimOrig = document.createElement('div');
+        interimOrig.className = 'entry dim';
+        origContent.appendChild(interimOrig);
+      }
       interimOrig.textContent = interim + '…';
-      if (!interimTrans) { interimTrans = document.createElement('div'); interimTrans.className = 'entry dim'; transContent.appendChild(interimTrans); }
-      interimTrans.textContent = '…';
-      subText.className = 'pending'; subText.textContent = interim; subText.style.fontSize = fontSize + 'px';
+
+      if (!interimTrans) {
+        interimTrans = document.createElement('div');
+        interimTrans.className = 'entry dim';
+        transContent.appendChild(interimTrans);
+      }
+
+      // Show interim text in subtitle while translation catches up
+      if (!lastTranslatedInterim) {
+        subText.className = 'pending';
+        subText.textContent = interim;
+        subText.style.fontSize = fontSize + 'px';
+      }
+
+      // Kick off debounced interim translation
+      translateInterim(interim);
+
       origContent.scrollTop = origContent.scrollHeight;
     } else {
       if (interimOrig) { interimOrig.remove(); interimOrig = null; }
@@ -144,10 +208,12 @@ function buildRecog() {
 
   r.onerror = ev => {
     if (ev.error === 'not-allowed') {
-      showErr('Mic blocked! Tap the lock icon in Chrome\'s address bar → allow Microphone → reload page.');
+      showErr('Mic blocked! Tap the lock icon in Chrome address bar → allow Microphone → reload.');
       stopListening();
     } else if (ev.error === 'no-speech') {
-      listenStatus.textContent = '🟡 No speech detected — is volume up?';
+      listenStatus.textContent = '🟡 No speech — is volume up?';
+    } else if (ev.error === 'network') {
+      listenStatus.textContent = '🟡 Network hiccup, retrying…';
     }
   };
 
@@ -163,11 +229,13 @@ function startListening() {
     listenBtn.classList.add('live');
     btnTxt.textContent = 'TRANSLATING — TAP TO STOP';
     startTimer();
+    requestWakeLock();
   } catch (e) { showErr('Could not start mic: ' + e.message); }
 }
 
 function stopListening() {
   isListening = false;
+  clearTimeout(interimDebounce);
   if (recog) { recog.stop(); recog = null; }
   listenBtn.classList.remove('live');
   btnTxt.textContent = 'TAP TO START TRANSLATING';
@@ -177,6 +245,8 @@ function stopListening() {
   stopTimer();
   if (interimOrig) { interimOrig.remove(); interimOrig = null; }
   if (interimTrans) { interimTrans.remove(); interimTrans = null; }
+  lastInterimText = '';
+  lastTranslatedInterim = '';
 }
 
 function restartRecog() {
@@ -207,15 +277,14 @@ saveBtn.addEventListener('click', () => {
   a.download = `tt-${Date.now()}.txt`; a.click();
 });
 
-// Wake lock
+// Wake lock - keep screen on
 let wakeLock = null;
 async function requestWakeLock() {
   if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
 }
 document.addEventListener('visibilitychange', async () => {
-  if (wakeLock !== null && document.visibilityState === 'visible' && isListening) await requestWakeLock();
+  if (document.visibilityState === 'visible' && isListening) requestWakeLock();
 });
-listenBtn.addEventListener('click', () => { if (isListening) requestWakeLock(); });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
