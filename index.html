@@ -8,326 +8,286 @@
   <meta name="apple-mobile-web-app-title" content="TT Translate"/>
   <meta name="theme-color" content="#000000"/>
   <link rel="manifest" href="manifest.json"/>
-  <link rel="apple-touch-icon" href="icon-192.png"/>
   <title>TikTok Live Translator</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg: #080808;
+      --bg: #000;
       --surface: #111;
-      --surface2: #181818;
-      --border: #222;
+      --border: #1e1e1e;
       --red: #fe2c55;
-      --green: #25f4ee;
+      --green: #1db954;
+      --teal: #25f4ee;
       --text: #fff;
       --muted: #555;
-      --dim: #333;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
     html, body {
-      height: 100%; overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
+      height: 100%; background: var(--bg); color: var(--text);
+      font-family: 'DM Sans', sans-serif; overflow: hidden;
       touch-action: manipulation;
     }
 
-    /* ── LAYOUT ── */
-    #app {
-      display: flex; flex-direction: column;
-      height: 100dvh;
-      padding-top: var(--safe-top);
-      padding-bottom: var(--safe-bottom);
-    }
+    /* ── MODES ── */
+    /* splitscreen = compact strip mode */
+    /* full = expanded settings */
+    #app { height: 100dvh; display: flex; flex-direction: column; }
 
-    /* ── HEADER ── */
-    .hdr {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px 8px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .hdr-logo {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 22px; letter-spacing: 1px;
-      color: var(--red); line-height: 1;
-    }
-    .hdr-logo span { color: var(--green); }
-    .hdr-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
-    .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-    .timer-pill {
-      font-family: 'DM Mono', monospace;
-      font-size: 12px; color: var(--muted);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 3px 10px;
-    }
-    .timer-pill.live { color: var(--green); border-color: #1a3a39; background: #0d2120; }
-
-    /* ── LANG ROW ── */
-    .lang-row {
+    /* ══════════════════════════════
+       COMPACT BAR (always visible)
+    ══════════════════════════════ */
+    .compact-bar {
       display: flex; align-items: center; gap: 8px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      padding-top: calc(8px + var(--safe-top));
+      background: #000; border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
+    #listenBtn {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--red); border: none;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; cursor: pointer; transition: background 0.15s, transform 0.1s;
+    }
+    #listenBtn:active { transform: scale(0.93); }
+    #listenBtn.live { background: var(--green); }
+    .btn-icon { font-size: 18px; line-height: 1; }
+    #listenBtn.live .btn-icon { animation: none; }
+
+    .sub-pill {
+      flex: 1; background: #0a0a0a;
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px 12px; min-height: 44px;
+      display: flex; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .sub-pill::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--red); border-radius: 3px 0 0 3px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .sub-pill.live::before { opacity: 1; background: var(--green); }
+    #subText {
+      font-size: 15px; font-weight: 600; line-height: 1.35;
+      color: #444; width: 100%;
+    }
+    #subText.live { color: #fff; }
+    #subText.pending { color: #444; font-weight: 400; font-style: italic; font-size: 13px; }
+
+    .settings-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+    }
+    .settings-btn.open { background: #1a1a1a; color: var(--teal); border-color: #2a3a3a; }
+    .settings-btn:active { transform: scale(0.93); }
+
+    /* ══════════════════════════════
+       SETTINGS DRAWER
+    ══════════════════════════════ */
+    #drawer {
+      background: #080808; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; overflow: hidden;
+      max-height: 0; transition: max-height 0.3s ease;
+    }
+    #drawer.open { max-height: 400px; }
+    .drawer-inner { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* lang row */
+    .lang-row { display: flex; align-items: flex-end; gap: 8px; }
     .lang-wrap { flex: 1; }
     .lang-wrap label {
-      font-size: 9px; font-weight: 700;
+      display: block; font-size: 9px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--dim); display: block; margin-bottom: 3px;
+      color: var(--muted); margin-bottom: 4px;
     }
     select {
-      width: 100%; background: var(--surface);
-      color: var(--text); border: 1px solid var(--border);
-      border-radius: 8px; padding: 8px 10px;
-      font-size: 13px; font-family: 'DM Sans', sans-serif;
+      width: 100%; background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 10px; font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
       cursor: pointer; appearance: none;
     }
     select:focus { outline: none; border-color: var(--red); }
-
     .swap-btn {
-      margin-top: 14px;
-      width: 36px; height: 36px;
+      width: 36px; height: 36px; border-radius: 50%;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 50%; color: var(--muted);
-      font-size: 16px; cursor: pointer; flex-shrink: 0;
+      color: var(--muted); font-size: 16px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
+      flex-shrink: 0; transition: all 0.15s; margin-bottom: 1px;
     }
-    .swap-btn:active { background: var(--surface2); color: var(--red); transform: rotate(180deg); }
+    .swap-btn:active { color: var(--red); transform: rotate(180deg); }
 
-    /* ── SUBTITLE ZONE ── */
-    .sub-zone {
-      flex-shrink: 0;
-      background: #000;
-      margin: 10px 12px 0;
-      border-radius: 14px;
-      min-height: 90px;
-      display: flex; align-items: center; justify-content: center;
-      text-align: center;
-      border: 1px solid #1a1a1a;
-      padding: 16px;
-      position: relative;
-      overflow: hidden;
-    }
-    .sub-zone::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 50% 100%, #fe2c5508 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .sub-badge {
-      position: absolute; top: 8px; left: 12px;
-      font-size: 8px; font-weight: 700; letter-spacing: 0.12em;
-      color: var(--red); opacity: 0.6;
-      font-family: 'DM Mono', monospace;
-    }
-    .sub-badge.live { opacity: 1; animation: fadepulse 2s infinite; }
-    @keyframes fadepulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-    #subText {
-      font-size: 22px; font-weight: 700; line-height: 1.35;
-      color: #555; transition: all 0.2s;
-      max-width: 100%;
-    }
-    #subText.live { color: #fff; }
-    #subText.pending { color: #444; font-style: italic; font-size: 14px; font-weight: 400; }
-
-    /* SIZE ROW */
-    .size-row {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 12px 4px; flex-shrink: 0;
-    }
-    .size-lbl { font-size: 10px; color: var(--dim); }
+    /* size row */
+    .size-row { display: flex; align-items: center; gap: 8px; }
+    .size-lbl { font-size: 10px; color: var(--muted); }
+    .sz-group { display: flex; gap: 4px; }
     .sz {
       background: var(--surface); border: 1px solid var(--border);
       color: var(--muted); border-radius: 6px;
-      padding: 4px 10px; font-size: 11px; cursor: pointer;
-      transition: all 0.1s; font-family: 'DM Mono', monospace;
+      padding: 5px 11px; font-size: 11px; cursor: pointer;
+      font-family: 'DM Mono', monospace; transition: all 0.1s;
     }
-    .sz.on { border-color: var(--red); color: var(--red); background: #1a0a0e; }
+    .sz.on { border-color: var(--red); color: var(--red); background: #150509; }
     .sz:active { transform: scale(0.95); }
 
-    /* ── TRANSCRIPT ── */
-    .panels {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 8px; padding: 6px 12px;
-      flex: 1; min-height: 0;
+    /* action row */
+    .action-row { display: flex; gap: 8px; }
+    .act-btn {
+      flex: 1; padding: 9px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); font-size: 12px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.1s;
+    }
+    .act-btn:active { background: #1a1a1a; color: #fff; transform: scale(0.97); }
+
+    /* stats */
+    .stats-row {
+      display: flex; gap: 6px;
+    }
+    .stat {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 7px; padding: 5px 8px; text-align: center;
+    }
+    .slbl { font-size: 8px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; }
+    .sval { font-size: 15px; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+    /* ══════════════════════════════
+       TRANSCRIPT (scrollable fill)
+    ══════════════════════════════ */
+    .transcript-area {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; padding: 8px 10px;
+      min-height: 0; overflow: hidden;
     }
     .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px;
-      overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
     }
     .panel::-webkit-scrollbar { width: 2px; }
-    .panel::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+    .panel::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
     .plabel {
-      font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--dim); margin-bottom: 4px; flex-shrink: 0;
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: #333; margin-bottom: 4px; flex-shrink: 0;
     }
     .entry {
       font-size: 11px; line-height: 1.5; color: #bbb;
-      background: var(--surface2); border-radius: 5px;
-      padding: 4px 6px;
+      background: #181818; border-radius: 5px; padding: 4px 6px;
     }
-    .entry.dim { color: var(--muted); font-style: italic; background: none; padding: 2px 4px; }
+    .entry.dim { color: #444; font-style: italic; background: none; padding: 2px 4px; }
 
-    /* ── STATS ── */
-    .stats {
-      display: flex; gap: 6px;
-      padding: 0 12px 6px; flex-shrink: 0;
-    }
-    .stat {
-      flex: 1; background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px; padding: 5px 8px; text-align: center;
-    }
-    .slbl { font-size: 8px; color: var(--dim); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
-    .sval { font-size: 16px; font-weight: 700; font-family: 'DM Mono', monospace; }
-
-    /* ── BUTTONS ── */
-    .btn-row {
-      display: flex; gap: 8px;
-      padding: 0 12px 8px; flex-shrink: 0;
-    }
-    #listenBtn {
-      flex: 1; padding: 14px;
-      background: var(--red); border: none; border-radius: 12px;
-      color: #fff; font-size: 15px; font-weight: 700;
-      font-family: 'DM Sans', sans-serif;
-      cursor: pointer; display: flex; align-items: center;
-      justify-content: center; gap: 10px;
-      transition: background 0.15s, transform 0.1s;
-      -webkit-user-select: none;
-    }
-    #listenBtn:active { transform: scale(0.97); }
-    #listenBtn.live { background: #1db954; }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #fff; flex-shrink: 0;
-    }
-    #listenBtn.live .dot { animation: blink 1s infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
-
-    .side-col { display: flex; flex-direction: column; gap: 6px; }
-    .sdbtn {
-      padding: 8px 12px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--muted);
-      font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif;
-      transition: all 0.1s; white-space: nowrap;
-    }
-    .sdbtn:active { background: var(--surface2); color: #fff; transform: scale(0.97); }
-
-    /* STATUS / ERROR */
+    /* status */
     #statusTxt {
-      padding: 0 14px 10px;
-      font-size: 10px; color: var(--dim); text-align: center; flex-shrink: 0;
+      flex-shrink: 0; padding: 4px 14px calc(4px + var(--safe-bottom));
+      font-size: 10px; color: #333; text-align: center;
+      background: #000;
     }
     #errBar {
-      margin: 0 12px 6px;
+      flex-shrink: 0; margin: 0 10px 6px;
       background: #1a0505; border: 1px solid #4d1010;
-      border-radius: 8px; padding: 8px 12px;
-      font-size: 11px; color: #ff7070; display: none; flex-shrink: 0;
+      border-radius: 8px; padding: 7px 12px;
+      font-size: 11px; color: #ff7070; display: none;
     }
 
-    /* INSTALL BANNER */
-    #installBanner {
+    /* recording pulse on sub-pill */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
+    .rec-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); margin-right: 6px; flex-shrink: 0;
       display: none;
-      margin: 0 12px 6px;
-      background: #0d2120; border: 1px solid #1a3a39;
-      border-radius: 8px; padding: 8px 12px;
-      font-size: 11px; color: var(--green);
-      flex-shrink: 0; align-items: center; gap: 8px;
     }
-    #installBanner button {
-      margin-left: auto; padding: 4px 10px;
-      background: var(--green); color: #000;
-      border: none; border-radius: 5px;
-      font-size: 11px; font-weight: 700; cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-    }
+    .rec-dot.live { display: block; animation: blink 1.2s infinite; }
   </style>
 </head>
 <body>
 <div id="app">
 
-  <div class="hdr">
-    <div>
-      <div class="hdr-logo">TT<span>Trans</span></div>
-      <div class="hdr-sub">Free · No account · Works on any phone</div>
+  <!-- ── COMPACT BAR ── -->
+  <div class="compact-bar">
+    <button id="listenBtn" title="Start/Stop">
+      <span class="btn-icon" id="btnIcon">▶</span>
+    </button>
+    <div class="sub-pill" id="subPill">
+      <span class="rec-dot" id="recDot"></span>
+      <span id="subText">Tap ▶ to start</span>
     </div>
-    <div class="hdr-right">
-      <div class="timer-pill" id="timerPill">0:00</div>
-    </div>
+    <button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
   </div>
 
-  <div class="lang-row">
-    <div class="lang-wrap">
-      <label>Stream language</label>
-      <select id="srcLang">
-        <option value="pt" selected>Portuguese (BR)</option>
-        <option value="zh-CN">Mandarin Chinese</option>
-        <option value="ko">Korean</option>
-        <option value="ja">Japanese</option>
-        <option value="es">Spanish</option>
-        <option value="th">Thai</option>
-        <option value="vi">Vietnamese</option>
-        <option value="id">Indonesian</option>
-        <option value="ar">Arabic</option>
-        <option value="ru">Russian</option>
-        <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="hi">Hindi</option>
-        <option value="tl">Filipino</option>
-        <option value="tr">Turkish</option>
-        <option value="it">Italian</option>
-      </select>
-    </div>
-    <button class="swap-btn" id="swapBtn">⇄</button>
-    <div class="lang-wrap">
-      <label>Translate to</label>
-      <select id="tgtLang">
-        <option value="en" selected>English</option>
-        <option value="pt">Portuguese</option>
-        <option value="es">Spanish</option>
-        <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="zh-CN">Chinese</option>
-        <option value="ko">Korean</option>
-        <option value="ja">Japanese</option>
-        <option value="ru">Russian</option>
-      </select>
-    </div>
-  </div>
+  <!-- ── SETTINGS DRAWER ── -->
+  <div id="drawer">
+    <div class="drawer-inner">
+      <div class="lang-row">
+        <div class="lang-wrap">
+          <label>Stream language</label>
+          <select id="srcLang">
+            <option value="pt" selected>Portuguese (BR)</option>
+            <option value="zh-CN">Mandarin Chinese</option>
+            <option value="ko">Korean</option>
+            <option value="ja">Japanese</option>
+            <option value="es">Spanish</option>
+            <option value="th">Thai</option>
+            <option value="vi">Vietnamese</option>
+            <option value="id">Indonesian</option>
+            <option value="ar">Arabic</option>
+            <option value="ru">Russian</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="hi">Hindi</option>
+            <option value="tl">Filipino</option>
+            <option value="tr">Turkish</option>
+            <option value="it">Italian</option>
+          </select>
+        </div>
+        <button class="swap-btn" id="swapBtn">⇄</button>
+        <div class="lang-wrap">
+          <label>Translate to</label>
+          <select id="tgtLang">
+            <option value="en" selected>English</option>
+            <option value="pt">Portuguese</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="zh-CN">Chinese</option>
+            <option value="ko">Korean</option>
+            <option value="ja">Japanese</option>
+            <option value="ru">Russian</option>
+          </select>
+        </div>
+      </div>
 
-  <div id="installBanner">
-    <span>📲 Add to Home Screen for quick access</span>
-    <button id="installBtn">Add</button>
+      <div class="size-row">
+        <span class="size-lbl">Subtitle size</span>
+        <div class="sz-group">
+          <button class="sz" data-s="13">S</button>
+          <button class="sz on" data-s="15">M</button>
+          <button class="sz" data-s="18">L</button>
+          <button class="sz" data-s="22">XL</button>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
+        <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
+        <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
+      </div>
+
+      <div class="action-row">
+        <button class="act-btn" id="saveBtn">💾 Save transcript</button>
+        <button class="act-btn" id="clearBtn">🗑 Clear</button>
+      </div>
+    </div>
   </div>
 
   <div id="errBar"></div>
 
-  <div class="sub-zone">
-    <span class="sub-badge" id="subBadge">● LIVE</span>
-    <p id="subText">Ready — tap Start to begin</p>
-  </div>
-
-  <div class="size-row">
-    <span class="size-lbl">Subtitle size</span>
-    <button class="sz" data-s="16">S</button>
-    <button class="sz on" data-s="22">M</button>
-    <button class="sz" data-s="30">L</button>
-    <button class="sz" data-s="40">XL</button>
-  </div>
-
-  <div class="panels">
+  <!-- ── TRANSCRIPT ── -->
+  <div class="transcript-area">
     <div class="panel">
       <div class="plabel">Original</div>
       <div id="origContent"></div>
@@ -338,25 +298,7 @@
     </div>
   </div>
 
-  <div class="stats">
-    <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
-    <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
-    <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
-  </div>
-
-  <div class="btn-row">
-    <button id="listenBtn">
-      <span class="dot"></span>
-      <span id="btnTxt">Start Listening</span>
-    </button>
-    <div class="side-col">
-      <button class="sdbtn" id="saveBtn">💾 Save</button>
-      <button class="sdbtn" id="clearBtn">🗑 Clear</button>
-    </div>
-  </div>
-
-  <div id="statusTxt">Choose stream language, then tap Start.</div>
-
+  <div id="statusTxt">Portuguese → English · tap ▶ to begin</div>
 </div>
 <script src="app.js"></script>
 </body>

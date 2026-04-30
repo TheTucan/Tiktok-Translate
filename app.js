@@ -1,5 +1,7 @@
 const listenBtn = document.getElementById('listenBtn');
-const btnTxt = document.getElementById('btnTxt');
+const btnIcon = document.getElementById('btnIcon');
+const settingsBtn = document.getElementById('settingsBtn');
+const drawer = document.getElementById('drawer');
 const clearBtn = document.getElementById('clearBtn');
 const saveBtn = document.getElementById('saveBtn');
 const swapBtn = document.getElementById('swapBtn');
@@ -11,33 +13,17 @@ const errBar = document.getElementById('errBar');
 const srcLang = document.getElementById('srcLang');
 const tgtLang = document.getElementById('tgtLang');
 const subText = document.getElementById('subText');
-const subBadge = document.getElementById('subBadge');
-const timerPill = document.getElementById('timerPill');
+const subPill = document.getElementById('subPill');
+const recDot = document.getElementById('recDot');
 const cLines = document.getElementById('cLines');
 const cWords = document.getElementById('cWords');
 const cTime = document.getElementById('cTime');
-const installBanner = document.getElementById('installBanner');
-const installBtn = document.getElementById('installBtn');
 
 let recog = null, isListening = false;
 let interimOrig = null, interimTrans = null;
 let pairs = [], wordCount = 0, lineCount = 0;
-let sessionStart = null, timerInt = null, fontSize = 22;
-let deferredInstall = null;
-
-// ── PWA Install prompt ──
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstall = e;
-  installBanner.style.display = 'flex';
-});
-installBtn.addEventListener('click', async () => {
-  if (!deferredInstall) return;
-  deferredInstall.prompt();
-  const { outcome } = await deferredInstall.userChoice;
-  if (outcome === 'accepted') installBanner.style.display = 'none';
-  deferredInstall = null;
-});
+let sessionStart = null, timerInt = null, fontSize = 15;
+let drawerOpen = false;
 
 // ── Saved prefs ──
 const saved = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
@@ -49,13 +35,21 @@ updateTransLabel();
 function savePrefs() {
   localStorage.setItem('tt_prefs', JSON.stringify({ srcLang: srcLang.value, tgtLang: tgtLang.value, fontSize }));
 }
-
 srcLang.addEventListener('change', savePrefs);
 tgtLang.addEventListener('change', () => { savePrefs(); updateTransLabel(); });
 
 function updateTransLabel() {
   transLabel.textContent = tgtLang.options[tgtLang.selectedIndex].text;
+  statusTxt.textContent = `${srcLang.options[srcLang.selectedIndex].text} → ${tgtLang.options[tgtLang.selectedIndex].text}`;
 }
+
+// ── Settings drawer toggle ──
+settingsBtn.addEventListener('click', () => {
+  drawerOpen = !drawerOpen;
+  drawer.classList.toggle('open', drawerOpen);
+  settingsBtn.classList.toggle('open', drawerOpen);
+  settingsBtn.textContent = drawerOpen ? '✕' : '⚙';
+});
 
 // ── Swap ──
 swapBtn.addEventListener('click', () => {
@@ -67,10 +61,7 @@ swapBtn.addEventListener('click', () => {
 
 // ── Size buttons ──
 document.querySelectorAll('.sz').forEach(btn => {
-  btn.addEventListener('click', () => {
-    setActiveSize(parseInt(btn.dataset.s));
-    savePrefs();
-  });
+  btn.addEventListener('click', () => { setActiveSize(parseInt(btn.dataset.s)); savePrefs(); });
 });
 function setActiveSize(s) {
   fontSize = s;
@@ -105,8 +96,9 @@ function addEntry(orig, trans) {
   cLines.textContent = lineCount;
   cWords.textContent = wordCount;
   subText.className = 'live';
-  subText.textContent = trans;
   subText.style.fontSize = fontSize + 'px';
+  subText.textContent = trans;
+  subPill.classList.add('live');
   origContent.scrollTop = origContent.scrollHeight;
   transContent.scrollTop = transContent.scrollHeight;
 }
@@ -115,29 +107,23 @@ function startTimer() {
   sessionStart = Date.now();
   timerInt = setInterval(() => {
     const s = Math.floor((Date.now() - sessionStart) / 1000);
-    const d = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-    cTime.textContent = d;
-    timerPill.textContent = d;
+    cTime.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }, 1000);
-  timerPill.classList.add('live');
 }
-function stopTimer() { clearInterval(timerInt); timerPill.classList.remove('live'); }
+function stopTimer() { clearInterval(timerInt); }
 
-// ── Speech Recognition ──
 function initRecog() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    showErr('Speech recognition requires Chrome on Android, or Safari on iPhone. Please open this page in Chrome.');
+    showErr('Speech recognition needs Chrome (Android) or Safari (iPhone). Please switch browsers.');
     return null;
   }
   const r = new SR();
-  r.continuous = true;
-  r.interimResults = true;
-  r.lang = srcLang.value;
+  r.continuous = true; r.interimResults = true; r.lang = srcLang.value;
 
   r.onstart = () => {
-    setStatus('Listening — hold your phone near the stream audio.');
-    subBadge.classList.add('live');
+    setStatus('Listening… turn up volume so mic can hear the stream');
+    recDot.classList.add('live');
   };
 
   r.onresult = async (e) => {
@@ -149,18 +135,18 @@ function initRecog() {
         if (txt) {
           if (interimOrig) { interimOrig.remove(); interimOrig = null; }
           if (interimTrans) { interimTrans.remove(); interimTrans = null; }
-          const tEl = document.createElement('div'); tEl.className = 'entry dim'; tEl.textContent = 'Translating...';
+          const tEl = document.createElement('div'); tEl.className = 'entry dim'; tEl.textContent = '...';
           transContent.appendChild(tEl);
-          subText.className = 'pending'; subText.textContent = 'Translating...';
+          subText.className = 'pending'; subText.textContent = '…';
           translate(txt, srcLang.value, tgtLang.value).then(tr => { tEl.remove(); addEntry(txt, tr); });
         }
       } else { interim += res[0].transcript; }
     }
     if (interim) {
       if (!interimOrig) { interimOrig = document.createElement('div'); interimOrig.className = 'entry dim'; origContent.appendChild(interimOrig); }
-      interimOrig.textContent = interim + '...';
+      interimOrig.textContent = interim + '…';
       if (!interimTrans) { interimTrans = document.createElement('div'); interimTrans.className = 'entry dim'; transContent.appendChild(interimTrans); }
-      interimTrans.textContent = '...';
+      interimTrans.textContent = '…';
       subText.className = 'pending'; subText.textContent = interim; subText.style.fontSize = fontSize + 'px';
       origContent.scrollTop = origContent.scrollHeight;
     } else {
@@ -171,28 +157,24 @@ function initRecog() {
 
   r.onerror = ev => {
     if (ev.error === 'not-allowed') {
-      showErr('Microphone blocked. Tap the lock/mic icon in your browser address bar and allow microphone access.');
+      showErr('Mic blocked — tap the lock icon in the address bar and allow microphone.');
       stopListening();
     } else if (ev.error === 'no-speech') {
-      setStatus('No speech detected — is stream audio audible through speakers?');
-    } else if (ev.error === 'network') {
-      setStatus('Network hiccup — retrying...');
+      setStatus('No speech — is stream audio on?');
     }
   };
 
-  r.onend = () => { if (isListening) { try { r.start(); } catch {} } };
+  r.onend = () => { if (isListening) try { r.start(); } catch {} };
   return r;
 }
 
 function startListening() {
   showErr('');
-  recog = initRecog();
-  if (!recog) return;
+  recog = initRecog(); if (!recog) return;
   try {
-    recog.start();
-    isListening = true;
+    recog.start(); isListening = true;
     listenBtn.classList.add('live');
-    btnTxt.textContent = 'Stop Listening';
+    btnIcon.textContent = '■';
     startTimer();
   } catch (e) { showErr('Could not start mic: ' + e.message); }
 }
@@ -201,9 +183,10 @@ function stopListening() {
   isListening = false;
   if (recog) { recog.stop(); recog = null; }
   listenBtn.classList.remove('live');
-  btnTxt.textContent = 'Start Listening';
-  subBadge.classList.remove('live');
-  setStatus('Stopped. Tap Start to resume.');
+  btnIcon.textContent = '▶';
+  recDot.classList.remove('live');
+  subPill.classList.remove('live');
+  setStatus('Stopped — tap ▶ to resume');
   stopTimer();
   if (interimOrig) { interimOrig.remove(); interimOrig = null; }
   if (interimTrans) { interimTrans.remove(); interimTrans = null; }
@@ -214,9 +197,9 @@ listenBtn.addEventListener('click', () => isListening ? stopListening() : startL
 clearBtn.addEventListener('click', () => {
   origContent.innerHTML = ''; transContent.innerHTML = '';
   pairs = []; lineCount = 0; wordCount = 0;
-  cLines.textContent = '0'; cWords.textContent = '0'; cTime.textContent = '0:00'; timerPill.textContent = '0:00';
-  subText.textContent = 'Ready — tap Start to begin'; subText.className = '';
-  subBadge.classList.remove('live');
+  cLines.textContent = '0'; cWords.textContent = '0'; cTime.textContent = '0:00';
+  subText.textContent = 'Tap ▶ to start'; subText.className = '';
+  subPill.classList.remove('live'); recDot.classList.remove('live');
   stopTimer(); sessionStart = null;
   setStatus('Cleared.');
 });
@@ -225,31 +208,24 @@ saveBtn.addEventListener('click', () => {
   if (!pairs.length) { setStatus('Nothing to save yet.'); return; }
   const src = srcLang.options[srcLang.selectedIndex].text;
   const tgt = tgtLang.options[tgtLang.selectedIndex].text;
-  const header = `TikTok Live Translator\nSaved: ${new Date().toLocaleString()}\n${src} → ${tgt}\n${'─'.repeat(40)}\n\n`;
+  const header = `TikTok Live Translator\n${new Date().toLocaleString()}\n${src} → ${tgt}\n${'─'.repeat(40)}\n\n`;
   const body = pairs.map((p, i) => `[${String(i+1).padStart(3,'0')}] ${p.time}\n  ${p.orig}\n  ${p.trans}`).join('\n\n');
   const blob = new Blob([header + body], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `tt-transcript-${Date.now()}.txt`; a.click();
+  a.download = `tt-${Date.now()}.txt`; a.click();
   setStatus(`Saved ${pairs.length} lines.`);
 });
 
-// Keep screen awake while listening (where supported)
+// Wake lock - keep screen on while listening
 let wakeLock = null;
 async function requestWakeLock() {
-  if ('wakeLock' in navigator) {
-    try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
-  }
+  if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
 }
 document.addEventListener('visibilitychange', async () => {
-  if (wakeLock !== null && document.visibilityState === 'visible' && isListening) {
-    await requestWakeLock();
-  }
+  if (wakeLock !== null && document.visibilityState === 'visible' && isListening) await requestWakeLock();
 });
 listenBtn.addEventListener('click', () => { if (isListening) requestWakeLock(); });
 
-// Register service worker for offline use
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
