@@ -10,55 +10,83 @@
   <link rel="manifest" href="manifest.json"/>
   <title>TikTok Live Translator</title>
   <style>
-    :root{--bg:#000;--surface:#161616;--border:#252525;--red:#fe2c55;--green:#1db954;--yellow:#f5a623;--text:#fff;--muted:#666}
+    :root{--bg:#000;--surface:#141414;--surface2:#1c1c1c;--border:#272727;--red:#fe2c55;--green:#1db954;--yellow:#f5a623;--blue:#4a9eff;--text:#fff;--muted:#666}
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;touch-action:manipulation}
     #app{height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+    /* LANG ROW */
     .lang-row{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-    select{flex:1;background:#222;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer;appearance:none;text-align:center}
-    .swap-btn{width:36px;height:36px;border-radius:50%;background:#222;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    select{flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer;appearance:none;text-align:center}
+    .swap-btn{width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .swap-btn:active{color:var(--red)}
+
+    /* AUDIO SOURCE TOGGLE */
+    .source-row{display:flex;gap:6px;padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+    .src-btn{flex:1;padding:8px 6px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all 0.15s;line-height:1.3}
+    .src-btn .src-icon{font-size:16px;display:block;margin-bottom:2px}
+    .src-btn.active{border-color:var(--blue);color:var(--blue);background:#0a1520}
+    .src-btn:active{transform:scale(0.97)}
+    .src-tip{font-size:10px;color:var(--muted);padding:5px 10px 0;text-align:center;flex-shrink:0;display:none}
+    .src-tip.show{display:block}
+
+    /* LISTEN BUTTON */
     .listen-wrap{padding:10px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0}
-    #listenBtn{width:100%;padding:14px 20px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--red);color:#fff;transition:background 0.15s}
+    #listenBtn{width:100%;padding:14px 20px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--red);color:#fff;transition:background 0.15s}
     #listenBtn.live{background:var(--green);box-shadow:0 0 24px rgba(29,185,84,0.4)}
-    .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.5);flex-shrink:0}
+    .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.5);flex-shrink:0}
     #listenBtn.live .dot{background:#fff;animation:blink 1s infinite}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
-    .indicators{display:flex;gap:5px;padding:7px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-    .ind{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:var(--muted);background:#111;border:1px solid var(--border);border-radius:20px;padding:5px 6px}
-    .ind-dot{width:7px;height:7px;border-radius:50%;background:#333;flex-shrink:0}
+
+    /* INDICATORS */
+    .indicators{display:flex;gap:5px;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+    .ind{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:10px;color:var(--muted);background:#0e0e0e;border:1px solid var(--border);border-radius:20px;padding:4px 5px}
+    .ind-dot{width:6px;height:6px;border-radius:50%;background:#2a2a2a;flex-shrink:0}
     .ind.ok .ind-dot{background:var(--green)}
     .ind.warn .ind-dot{background:var(--yellow);animation:blink 1.2s infinite}
     .ind.err .ind-dot{background:var(--red)}
-    .ind.ok{color:#ccc}.ind.warn{color:var(--yellow)}.ind.err{color:#ff7070;border-color:#3d1515}
-    .sub-zone{background:#050505;border-bottom:1px solid var(--border);padding:14px 16px;min-height:80px;display:flex;align-items:center;justify-content:center;text-align:center;flex-shrink:0;position:relative}
+    .ind.ok{color:#bbb}.ind.warn{color:var(--yellow)}.ind.err{color:#ff7070;border-color:#3d1515}
+
+    /* SUBTITLE */
+    .sub-zone{background:#030303;border-bottom:1px solid var(--border);padding:14px 16px;min-height:78px;display:flex;align-items:center;justify-content:center;text-align:center;flex-shrink:0;position:relative}
     .sub-label{position:absolute;top:7px;left:11px;font-size:9px;font-weight:700;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase}
     .sub-label.live{color:var(--green)}
-    #subText{font-size:18px;font-weight:600;line-height:1.4;color:#444}
+    #subText{font-size:18px;font-weight:600;line-height:1.4;color:#3a3a3a}
     #subText.live{color:#fff}
-    #subText.pending{color:#888;font-style:italic;font-size:13px;font-weight:400}
-    .bottom-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
-    .size-group{display:flex;gap:4px}
-    .sz{background:#222;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer}
-    .sz.on{border-color:var(--red);color:var(--red);background:#1a0509}
+    #subText.pending{color:#666;font-style:italic;font-size:13px;font-weight:400}
+
+    /* BOTTOM CONTROLS */
+    .bottom-row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+    .size-group{display:flex;gap:3px}
+    .sz{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer}
+    .sz.on{border-color:var(--red);color:var(--red);background:#150408}
     .spacer{flex:1}
-    .act-btn{padding:6px 12px;background:#222;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer}
+    .act-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer}
     .act-btn:active{color:#fff}
+
+    /* TRANSCRIPT */
     .transcript{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 10px;min-height:0;overflow:hidden}
     .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
-    .plabel{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#333;margin-bottom:4px;flex-shrink:0}
-    .entry{font-size:11px;line-height:1.5;color:#bbb;background:#1e1e1e;border-radius:5px;padding:4px 6px}
-    .entry.dim{color:#444;font-style:italic;background:none;padding:2px 4px}
+    .panel::-webkit-scrollbar{width:2px}
+    .panel::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+    .plabel{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#2a2a2a;margin-bottom:4px;flex-shrink:0}
+    .entry{font-size:11px;line-height:1.5;color:#bbb;background:#1a1a1a;border-radius:5px;padding:4px 6px}
+    .entry.dim{color:#3a3a3a;font-style:italic;background:none;padding:2px 4px}
+
+    /* STATS */
     .stats-bar{display:flex;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)}
     .stat{flex:1;padding:5px 8px;text-align:center;border-right:1px solid var(--border)}
     .stat:last-child{border-right:none}
-    .slbl{font-size:8px;color:#444;text-transform:uppercase;letter-spacing:0.07em}
+    .slbl{font-size:8px;color:#333;text-transform:uppercase;letter-spacing:0.07em}
     .sval{font-size:14px;font-weight:700}
-    #errBar{margin:6px 10px 0;background:#1a0505;border:1px solid #4d1010;border-radius:8px;padding:8px 12px;font-size:11px;color:#ff7070;display:none;flex-shrink:0}
+
+    #errBar{margin:0 10px;background:#1a0505;border:1px solid #4d1010;border-radius:8px;padding:8px 12px;font-size:11px;color:#ff7070;display:none;flex-shrink:0;margin-top:6px}
   </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- LANG -->
   <div class="lang-row">
     <select id="srcLang">
       <option value="pt" selected>PT - Portuguese</option>
@@ -92,23 +120,41 @@
     </select>
   </div>
 
+  <!-- AUDIO SOURCE -->
+  <div class="source-row">
+    <button class="src-btn active" id="srcTab" onclick="setSource('tab')">
+      <span class="src-icon">🌐</span>Tab audio
+    </button>
+    <button class="src-btn" id="srcMic" onclick="setSource('mic')">
+      <span class="src-icon">🎤</span>Microphone
+    </button>
+    <button class="src-btn" id="srcBt" onclick="setSource('bt')">
+      <span class="src-icon">🎧</span>Bluetooth
+    </button>
+  </div>
+  <div class="src-tip" id="srcTip"></div>
+
+  <!-- LISTEN -->
   <div class="listen-wrap">
     <button id="listenBtn"><span class="dot"></span><span id="btnTxt">TAP TO START TRANSLATING</span></button>
   </div>
 
+  <!-- INDICATORS -->
   <div class="indicators">
-    <div class="ind" id="indMic"><span class="ind-dot"></span><span id="indMicTxt">Mic: off</span></div>
+    <div class="ind" id="indAudio"><span class="ind-dot"></span><span id="indAudioTxt">Audio: off</span></div>
     <div class="ind" id="indSpeech"><span class="ind-dot"></span><span id="indSpeechTxt">Hearing: -</span></div>
-    <div class="ind" id="indApi"><span class="ind-dot"></span><span id="indApiTxt">API: -</span></div>
+    <div class="ind" id="indApi"><span class="ind-dot"></span><span id="indApiTxt">API: ready</span></div>
   </div>
 
   <div id="errBar"></div>
 
+  <!-- SUBTITLE -->
   <div class="sub-zone">
     <span class="sub-label" id="subLabel">TRANSLATION</span>
     <p id="subText">Translation will appear here</p>
   </div>
 
+  <!-- SIZE + ACTIONS -->
   <div class="bottom-row">
     <div class="size-group">
       <button class="sz" data-s="14">S</button>
@@ -121,17 +167,20 @@
     <button class="act-btn" id="clearBtn">Clear</button>
   </div>
 
+  <!-- TRANSCRIPT -->
   <div class="transcript">
     <div class="panel"><div class="plabel">Original</div><div id="origContent"></div></div>
     <div class="panel"><div class="plabel" id="transLabel">English</div><div id="transContent"></div></div>
   </div>
 
+  <!-- STATS -->
   <div class="stats-bar">
     <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
     <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
     <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
   </div>
+
 </div>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
