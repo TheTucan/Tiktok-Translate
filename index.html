@@ -10,241 +10,105 @@
   <link rel="manifest" href="manifest.json"/>
   <title>TikTok Live Translator</title>
   <style>
-    :root {
-      --bg: #000;
-      --surface: #161616;
-      --border: #252525;
-      --red: #fe2c55;
-      --green: #1db954;
-      --text: #fff;
-      --muted: #666;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      height: 100%; background: var(--bg); color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      overflow: hidden; touch-action: manipulation;
-    }
-    #app {
-      height: 100dvh;
-      display: flex; flex-direction: column;
-      padding-top: env(safe-area-inset-top, 0px);
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    /* ── LANG ROW ── always visible at top */
-    .lang-row {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 10px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    select {
-      flex: 1; background: #222; color: var(--text);
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 8px 10px; font-size: 13px; cursor: pointer;
-      appearance: none; text-align: center;
-    }
-    select:focus { outline: none; border-color: var(--red); }
-    .swap-btn {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: #222; border: 1px solid var(--border);
-      color: var(--muted); font-size: 18px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: all 0.15s;
-    }
-    .swap-btn:active { color: var(--red); transform: rotate(180deg); background: #2a2a2a; }
-
-    /* ── BIG LISTEN BUTTON ── */
-    .listen-wrap {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    #listenBtn {
-      flex: 1; padding: 13px 20px;
-      border: none; border-radius: 12px;
-      font-size: 16px; font-weight: 700; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      transition: background 0.15s, transform 0.08s;
-      background: var(--red); color: #fff;
-    }
-    #listenBtn:active { transform: scale(0.97); }
-    #listenBtn.live {
-      background: var(--green);
-      box-shadow: 0 0 20px rgba(29,185,84,0.35);
-    }
-    .dot {
-      width: 11px; height: 11px; border-radius: 50%;
-      background: rgba(255,255,255,0.5); flex-shrink: 0;
-    }
-    #listenBtn.live .dot {
-      background: #fff;
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.8)} }
-
-    /* status under the button */
-    .listen-status {
-      font-size: 10px; color: var(--muted); text-align: center;
-      padding: 0 12px 8px;
-      flex-shrink: 0;
-    }
-    .listen-status.live { color: var(--green); }
-
-    /* ── SUBTITLE ZONE ── */
-    .sub-zone {
-      background: #050505;
-      border-bottom: 1px solid var(--border);
-      padding: 14px 16px;
-      min-height: 80px;
-      display: flex; align-items: center; justify-content: center;
-      text-align: center;
-      flex-shrink: 0;
-      position: relative;
-    }
-    .sub-label {
-      position: absolute; top: 7px; left: 11px;
-      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
-      color: var(--muted); text-transform: uppercase;
-    }
-    .sub-label.live { color: var(--green); }
-    #subText {
-      font-size: 18px; font-weight: 600; line-height: 1.4;
-      color: #444; transition: font-size 0.1s;
-    }
-    #subText.live { color: #fff; }
-    #subText.pending { color: #444; font-style: italic; font-size: 13px; font-weight: 400; }
-
-    /* ── BOTTOM CONTROLS ── */
-    .bottom-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      background: var(--surface);
-    }
-    .size-group { display: flex; gap: 4px; }
-    .sz {
-      background: #222; border: 1px solid var(--border);
-      color: var(--muted); border-radius: 6px;
-      padding: 5px 10px; font-size: 11px; cursor: pointer;
-      transition: all 0.1s;
-    }
-    .sz.on { border-color: var(--red); color: var(--red); background: #1a0509; }
-    .sz:active { transform: scale(0.93); }
-    .spacer { flex: 1; }
-    .act-btn {
-      padding: 6px 12px;
-      background: #222; border: 1px solid var(--border);
-      border-radius: 8px; color: var(--muted);
-      font-size: 12px; cursor: pointer; transition: all 0.1s;
-    }
-    .act-btn:active { color: #fff; background: #2a2a2a; }
-
-    /* ── TRANSCRIPT ── */
-    .transcript {
-      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
-      gap: 6px; padding: 8px 10px;
-      min-height: 0; overflow: hidden;
-    }
-    .panel {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px; overflow-y: auto;
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .panel::-webkit-scrollbar { width: 2px; }
-    .panel::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-    .plabel {
-      font-size: 9px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.1em; color: #333; margin-bottom: 4px; flex-shrink: 0;
-    }
-    .entry {
-      font-size: 11px; line-height: 1.5; color: #bbb;
-      background: #1e1e1e; border-radius: 5px; padding: 4px 6px;
-    }
-    .entry.dim { color: #444; font-style: italic; background: none; padding: 2px 4px; }
-
-    /* stats bar */
-    .stats-bar {
-      display: flex; gap: 0;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0; background: var(--surface);
-    }
-    .stat {
-      flex: 1; padding: 5px 8px; text-align: center;
-      border-right: 1px solid var(--border);
-    }
-    .stat:last-child { border-right: none; }
-    .slbl { font-size: 8px; color: #444; text-transform: uppercase; letter-spacing: 0.07em; }
-    .sval { font-size: 14px; font-weight: 700; }
-
-    #errBar {
-      margin: 6px 10px 0;
-      background: #1a0505; border: 1px solid #4d1010;
-      border-radius: 8px; padding: 8px 12px;
-      font-size: 11px; color: #ff7070; display: none; flex-shrink: 0;
-    }
+    :root{--bg:#000;--surface:#161616;--border:#252525;--red:#fe2c55;--green:#1db954;--yellow:#f5a623;--text:#fff;--muted:#666}
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;touch-action:manipulation}
+    #app{height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+    .lang-row{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+    select{flex:1;background:#222;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer;appearance:none;text-align:center}
+    .swap-btn{width:36px;height:36px;border-radius:50%;background:#222;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .swap-btn:active{color:var(--red)}
+    .listen-wrap{padding:10px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0}
+    #listenBtn{width:100%;padding:14px 20px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--red);color:#fff;transition:background 0.15s}
+    #listenBtn.live{background:var(--green);box-shadow:0 0 24px rgba(29,185,84,0.4)}
+    .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.5);flex-shrink:0}
+    #listenBtn.live .dot{background:#fff;animation:blink 1s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+    .indicators{display:flex;gap:5px;padding:7px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+    .ind{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:var(--muted);background:#111;border:1px solid var(--border);border-radius:20px;padding:5px 6px}
+    .ind-dot{width:7px;height:7px;border-radius:50%;background:#333;flex-shrink:0}
+    .ind.ok .ind-dot{background:var(--green)}
+    .ind.warn .ind-dot{background:var(--yellow);animation:blink 1.2s infinite}
+    .ind.err .ind-dot{background:var(--red)}
+    .ind.ok{color:#ccc}.ind.warn{color:var(--yellow)}.ind.err{color:#ff7070;border-color:#3d1515}
+    .sub-zone{background:#050505;border-bottom:1px solid var(--border);padding:14px 16px;min-height:80px;display:flex;align-items:center;justify-content:center;text-align:center;flex-shrink:0;position:relative}
+    .sub-label{position:absolute;top:7px;left:11px;font-size:9px;font-weight:700;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase}
+    .sub-label.live{color:var(--green)}
+    #subText{font-size:18px;font-weight:600;line-height:1.4;color:#444}
+    #subText.live{color:#fff}
+    #subText.pending{color:#888;font-style:italic;font-size:13px;font-weight:400}
+    .bottom-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+    .size-group{display:flex;gap:4px}
+    .sz{background:#222;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer}
+    .sz.on{border-color:var(--red);color:var(--red);background:#1a0509}
+    .spacer{flex:1}
+    .act-btn{padding:6px 12px;background:#222;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer}
+    .act-btn:active{color:#fff}
+    .transcript{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 10px;min-height:0;overflow:hidden}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+    .plabel{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#333;margin-bottom:4px;flex-shrink:0}
+    .entry{font-size:11px;line-height:1.5;color:#bbb;background:#1e1e1e;border-radius:5px;padding:4px 6px}
+    .entry.dim{color:#444;font-style:italic;background:none;padding:2px 4px}
+    .stats-bar{display:flex;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+    .stat{flex:1;padding:5px 8px;text-align:center;border-right:1px solid var(--border)}
+    .stat:last-child{border-right:none}
+    .slbl{font-size:8px;color:#444;text-transform:uppercase;letter-spacing:0.07em}
+    .sval{font-size:14px;font-weight:700}
+    #errBar{margin:6px 10px 0;background:#1a0505;border:1px solid #4d1010;border-radius:8px;padding:8px 12px;font-size:11px;color:#ff7070;display:none;flex-shrink:0}
   </style>
 </head>
 <body>
 <div id="app">
-
-  <!-- LANGUAGE ROW -->
   <div class="lang-row">
     <select id="srcLang">
-      <option value="pt" selected>🇧🇷 Portuguese</option>
-      <option value="zh-CN">🇨🇳 Mandarin</option>
-      <option value="ko">🇰🇷 Korean</option>
-      <option value="ja">🇯🇵 Japanese</option>
-      <option value="es">🇪🇸 Spanish</option>
-      <option value="th">🇹🇭 Thai</option>
-      <option value="vi">🇻🇳 Vietnamese</option>
-      <option value="id">🇮🇩 Indonesian</option>
-      <option value="ar">🇸🇦 Arabic</option>
-      <option value="ru">🇷🇺 Russian</option>
-      <option value="fr">🇫🇷 French</option>
-      <option value="de">🇩🇪 German</option>
-      <option value="hi">🇮🇳 Hindi</option>
-      <option value="tl">🇵🇭 Filipino</option>
-      <option value="tr">🇹🇷 Turkish</option>
-      <option value="it">🇮🇹 Italian</option>
+      <option value="pt" selected>PT - Portuguese</option>
+      <option value="zh-CN">CN - Mandarin</option>
+      <option value="ko">KR - Korean</option>
+      <option value="ja">JP - Japanese</option>
+      <option value="es">ES - Spanish</option>
+      <option value="th">TH - Thai</option>
+      <option value="vi">VN - Vietnamese</option>
+      <option value="id">ID - Indonesian</option>
+      <option value="ar">AR - Arabic</option>
+      <option value="ru">RU - Russian</option>
+      <option value="fr">FR - French</option>
+      <option value="de">DE - German</option>
+      <option value="hi">IN - Hindi</option>
+      <option value="tl">PH - Filipino</option>
+      <option value="tr">TR - Turkish</option>
+      <option value="it">IT - Italian</option>
     </select>
-    <button class="swap-btn" id="swapBtn">⇄</button>
+    <button class="swap-btn" id="swapBtn">&#8644;</button>
     <select id="tgtLang">
-      <option value="en" selected>🇺🇸 English</option>
-      <option value="pt">🇧🇷 Portuguese</option>
-      <option value="es">🇪🇸 Spanish</option>
-      <option value="fr">🇫🇷 French</option>
-      <option value="de">🇩🇪 German</option>
-      <option value="zh-CN">🇨🇳 Chinese</option>
-      <option value="ko">🇰🇷 Korean</option>
-      <option value="ja">🇯🇵 Japanese</option>
-      <option value="ru">🇷🇺 Russian</option>
+      <option value="en" selected>EN - English</option>
+      <option value="pt">PT - Portuguese</option>
+      <option value="es">ES - Spanish</option>
+      <option value="fr">FR - French</option>
+      <option value="de">DE - German</option>
+      <option value="zh-CN">CN - Chinese</option>
+      <option value="ko">KR - Korean</option>
+      <option value="ja">JP - Japanese</option>
+      <option value="ru">RU - Russian</option>
     </select>
   </div>
 
-  <!-- BIG START BUTTON -->
   <div class="listen-wrap">
-    <button id="listenBtn">
-      <span class="dot"></span>
-      <span id="btnTxt">TAP TO START TRANSLATING</span>
-    </button>
+    <button id="listenBtn"><span class="dot"></span><span id="btnTxt">TAP TO START TRANSLATING</span></button>
   </div>
-  <div class="listen-status" id="listenStatus">Not listening</div>
+
+  <div class="indicators">
+    <div class="ind" id="indMic"><span class="ind-dot"></span><span id="indMicTxt">Mic: off</span></div>
+    <div class="ind" id="indSpeech"><span class="ind-dot"></span><span id="indSpeechTxt">Hearing: -</span></div>
+    <div class="ind" id="indApi"><span class="ind-dot"></span><span id="indApiTxt">API: -</span></div>
+  </div>
 
   <div id="errBar"></div>
 
-  <!-- SUBTITLE -->
   <div class="sub-zone">
     <span class="sub-label" id="subLabel">TRANSLATION</span>
     <p id="subText">Translation will appear here</p>
   </div>
 
-  <!-- SIZE + ACTIONS -->
   <div class="bottom-row">
     <div class="size-group">
       <button class="sz" data-s="14">S</button>
@@ -257,26 +121,17 @@
     <button class="act-btn" id="clearBtn">Clear</button>
   </div>
 
-  <!-- TRANSCRIPT -->
   <div class="transcript">
-    <div class="panel">
-      <div class="plabel">Original</div>
-      <div id="origContent"></div>
-    </div>
-    <div class="panel">
-      <div class="plabel" id="transLabel">English</div>
-      <div id="transContent"></div>
-    </div>
+    <div class="panel"><div class="plabel">Original</div><div id="origContent"></div></div>
+    <div class="panel"><div class="plabel" id="transLabel">English</div><div id="transContent"></div></div>
   </div>
 
-  <!-- STATS -->
   <div class="stats-bar">
     <div class="stat"><div class="slbl">Lines</div><div class="sval" id="cLines">0</div></div>
     <div class="stat"><div class="slbl">Words</div><div class="sval" id="cWords">0</div></div>
     <div class="stat"><div class="slbl">Time</div><div class="sval" id="cTime">0:00</div></div>
   </div>
-
 </div>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

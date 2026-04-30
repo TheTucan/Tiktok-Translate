@@ -1,7 +1,6 @@
-// v4 - faster: interim translation + debounce + dual API fallback
+// v5 - diagnostics + robust mic + dual API + interim translation
 const listenBtn = document.getElementById('listenBtn');
 const btnTxt = document.getElementById('btnTxt');
-const listenStatus = document.getElementById('listenStatus');
 const clearBtn = document.getElementById('clearBtn');
 const saveBtn = document.getElementById('saveBtn');
 const swapBtn = document.getElementById('swapBtn');
@@ -17,15 +16,26 @@ const cLines = document.getElementById('cLines');
 const cWords = document.getElementById('cWords');
 const cTime = document.getElementById('cTime');
 
+// Indicator elements
+const indMic = document.getElementById('indMic');
+const indMicTxt = document.getElementById('indMicTxt');
+const indSpeech = document.getElementById('indSpeech');
+const indSpeechTxt = document.getElementById('indSpeechTxt');
+const indApi = document.getElementById('indApi');
+const indApiTxt = document.getElementById('indApiTxt');
+
 let recog = null, isListening = false;
 let interimOrig = null, interimTrans = null;
 let pairs = [], wordCount = 0, lineCount = 0;
 let sessionStart = null, timerInt = null, fontSize = 18;
+let interimDebounce = null, lastInterimText = '', lastTranslatedInterim = '';
+let speechDetectedAt = null, noSpeechTimer = null;
 
-// ── Debounce timer for interim translation ──
-let interimDebounce = null;
-let lastInterimText = '';
-let lastTranslatedInterim = '';
+// ── Indicator helpers ──
+function setInd(el, txtEl, state, msg) {
+  el.className = 'ind ' + state;
+  txtEl.textContent = msg;
+}
 
 // ── Restore prefs ──
 const saved = JSON.parse(localStorage.getItem('tt_prefs') || '{}');
@@ -63,55 +73,66 @@ function setActiveSize(s) {
 
 function showErr(msg) { errBar.style.display = msg ? 'block' : 'none'; errBar.textContent = msg || ''; }
 
-// ── FAST TRANSLATION: tries Google unofficial first, falls back to MyMemory ──
+// ── TRANSLATION: Google unofficial first, MyMemory fallback ──
 async function translate(text, from, to) {
   if (!text.trim()) return '';
   const f = from.split('-')[0], t = to.split('-')[0];
   if (f === t) return text;
 
-  // Try Google Translate unofficial (fastest)
+  setInd(indApi, indApiTxt, 'warn', 'API: calling...');
+
+  // 1. Google Translate (unofficial, fastest ~100-200ms)
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${f}&tl=${t}&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     const data = await res.json();
     if (data && data[0]) {
-      return data[0].map(x => x[0]).filter(Boolean).join('');
+      const result = data[0].map(x => x && x[0]).filter(Boolean).join('');
+      if (result) {
+        setInd(indApi, indApiTxt, 'ok', 'API: Google OK');
+        return result;
+      }
     }
   } catch {}
 
-  // Fallback: MyMemory
+  // 2. MyMemory fallback
   try {
-    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${f}|${t}`);
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${f}|${t}`,
+      { signal: AbortSignal.timeout(4000) }
+    );
     const data = await res.json();
-    if (data.responseStatus === 200 && data.responseData) return data.responseData.translatedText;
+    if (data.responseStatus === 200 && data.responseData) {
+      setInd(indApi, indApiTxt, 'ok', 'API: MyMemory OK');
+      return data.responseData.translatedText;
+    }
   } catch {}
 
-  return '[unavailable]';
+  setInd(indApi, indApiTxt, 'err', 'API: failed');
+  return '[translation failed]';
 }
 
-// ── Show interim translation in subtitle immediately ──
+// ── Interim debounced translation (shows subtitle while still speaking) ──
 function translateInterim(text) {
   if (!text || text === lastInterimText) return;
   lastInterimText = text;
   clearTimeout(interimDebounce);
-  // Debounce: wait 600ms of no new interim text before translating
   interimDebounce = setTimeout(async () => {
     if (!isListening) return;
     const tr = await translate(text, srcLang.value, tgtLang.value);
-    if (tr && tr !== lastTranslatedInterim && isListening) {
+    if (tr && isListening && !tr.startsWith('[')) {
       lastTranslatedInterim = tr;
       subText.className = 'pending';
       subText.textContent = tr;
       subText.style.fontSize = fontSize + 'px';
       if (interimTrans) interimTrans.textContent = tr;
     }
-  }, 600);
+  }, 500); // 500ms debounce — translates quickly but not on every keystroke
 }
 
 function addEntry(orig, trans) {
   clearTimeout(interimDebounce);
-  lastInterimText = '';
-  lastTranslatedInterim = '';
+  lastInterimText = ''; lastTranslatedInterim = '';
 
   const o = document.createElement('div'); o.className = 'entry'; o.textContent = orig;
   origContent.appendChild(o);
@@ -139,34 +160,48 @@ function startTimer() {
 }
 function stopTimer() { clearInterval(timerInt); }
 
+// ── No-speech watchdog: warns if nothing heard for 8 seconds ──
+function resetNoSpeechTimer() {
+  clearTimeout(noSpeechTimer);
+  noSpeechTimer = setTimeout(() => {
+    if (isListening) {
+      setInd(indSpeech, indSpeechTxt, 'warn', 'Hearing: silent');
+    }
+  }, 8000);
+}
+
 function buildRecog() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    showErr('Speech recognition needs Chrome on Android or Safari on iPhone.');
+    showErr('Speech recognition needs Chrome (Android) or Safari (iPhone). Please switch browsers.');
     return null;
   }
   const r = new SR();
   r.continuous = true;
   r.interimResults = true;
   r.lang = srcLang.value;
-  // maxAlternatives = 1 keeps it lean
   r.maxAlternatives = 1;
 
   r.onstart = () => {
-    listenStatus.textContent = '🟢 Listening — turn up volume';
-    listenStatus.className = 'listen-status live';
+    setInd(indMic, indMicTxt, 'ok', 'Mic: on');
+    setInd(indSpeech, indSpeechTxt, 'warn', 'Hearing: waiting');
+    setInd(indApi, indApiTxt, '', 'API: ready');
+    resetNoSpeechTimer();
+    showErr('');
   };
 
   r.onresult = (e) => {
+    resetNoSpeechTimer();
     let interim = '';
+
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
       if (res.isFinal) {
         const txt = res[0].transcript.trim();
+        setInd(indSpeech, indSpeechTxt, 'ok', 'Heard: ' + txt.slice(0, 12) + (txt.length > 12 ? '...' : ''));
         if (txt) {
           if (interimOrig) { interimOrig.remove(); interimOrig = null; }
           if (interimTrans) { interimTrans.remove(); interimTrans = null; }
-          // Translate final result immediately
           translate(txt, srcLang.value, tgtLang.value).then(tr => addEntry(txt, tr));
         }
       } else {
@@ -175,30 +210,25 @@ function buildRecog() {
     }
 
     if (interim) {
-      // Show raw interim in original panel
+      setInd(indSpeech, indSpeechTxt, 'ok', 'Hearing: active');
       if (!interimOrig) {
         interimOrig = document.createElement('div');
         interimOrig.className = 'entry dim';
         origContent.appendChild(interimOrig);
       }
       interimOrig.textContent = interim + '…';
-
       if (!interimTrans) {
         interimTrans = document.createElement('div');
         interimTrans.className = 'entry dim';
         transContent.appendChild(interimTrans);
       }
-
-      // Show interim text in subtitle while translation catches up
+      // Show raw text in subtitle immediately while translation loads
       if (!lastTranslatedInterim) {
         subText.className = 'pending';
         subText.textContent = interim;
         subText.style.fontSize = fontSize + 'px';
       }
-
-      // Kick off debounced interim translation
       translateInterim(interim);
-
       origContent.scrollTop = origContent.scrollHeight;
     } else {
       if (interimOrig) { interimOrig.remove(); interimOrig = null; }
@@ -207,52 +237,86 @@ function buildRecog() {
   };
 
   r.onerror = ev => {
+    console.log('Speech error:', ev.error);
     if (ev.error === 'not-allowed') {
-      showErr('Mic blocked! Tap the lock icon in Chrome address bar → allow Microphone → reload.');
+      setInd(indMic, indMicTxt, 'err', 'Mic: BLOCKED');
+      showErr('Mic blocked! In Chrome: tap the lock icon in the address bar → Microphone → Allow → reload this page.');
       stopListening();
     } else if (ev.error === 'no-speech') {
-      listenStatus.textContent = '🟡 No speech — is volume up?';
+      setInd(indSpeech, indSpeechTxt, 'warn', 'Hearing: silent');
+    } else if (ev.error === 'audio-capture') {
+      setInd(indMic, indMicTxt, 'err', 'Mic: no device');
+      showErr('No microphone found. Check that your phone mic is not blocked by a case.');
+      stopListening();
     } else if (ev.error === 'network') {
-      listenStatus.textContent = '🟡 Network hiccup, retrying…';
+      setInd(indSpeech, indSpeechTxt, 'warn', 'Speech: net error');
+    } else if (ev.error === 'aborted') {
+      // normal on restart, ignore
     }
   };
 
-  r.onend = () => { if (isListening) try { r.start(); } catch {} };
+  r.onend = () => {
+    if (isListening) {
+      // Auto-restart — small delay avoids hammering
+      setTimeout(() => {
+        if (isListening) try { r.start(); } catch {}
+      }, 200);
+    }
+  };
+
   return r;
 }
 
 function startListening() {
   showErr('');
-  recog = buildRecog(); if (!recog) return;
-  try {
-    recog.start(); isListening = true;
-    listenBtn.classList.add('live');
-    btnTxt.textContent = 'TRANSLATING — TAP TO STOP';
-    startTimer();
-    requestWakeLock();
-  } catch (e) { showErr('Could not start mic: ' + e.message); }
+  // First check mic permission explicitly
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      // Permission granted — stop the test stream and start recognition
+      stream.getTracks().forEach(t => t.stop());
+      setInd(indMic, indMicTxt, 'ok', 'Mic: on');
+      recog = buildRecog();
+      if (!recog) return;
+      try {
+        recog.start();
+        isListening = true;
+        listenBtn.classList.add('live');
+        btnTxt.textContent = 'TRANSLATING — TAP TO STOP';
+        startTimer();
+        requestWakeLock();
+      } catch (e) {
+        showErr('Could not start mic: ' + e.message);
+      }
+    })
+    .catch(err => {
+      setInd(indMic, indMicTxt, 'err', 'Mic: BLOCKED');
+      showErr('Microphone blocked! Tap the lock icon next to the web address in Chrome, set Microphone to Allow, then reload.');
+    });
 }
 
 function stopListening() {
   isListening = false;
   clearTimeout(interimDebounce);
+  clearTimeout(noSpeechTimer);
   if (recog) { recog.stop(); recog = null; }
   listenBtn.classList.remove('live');
   btnTxt.textContent = 'TAP TO START TRANSLATING';
-  listenStatus.textContent = 'Not listening';
-  listenStatus.className = 'listen-status';
+  setInd(indMic, indMicTxt, '', 'Mic: off');
+  setInd(indSpeech, indSpeechTxt, '', 'Hearing: -');
   subLabel.className = 'sub-label';
   stopTimer();
   if (interimOrig) { interimOrig.remove(); interimOrig = null; }
   if (interimTrans) { interimTrans.remove(); interimTrans = null; }
-  lastInterimText = '';
-  lastTranslatedInterim = '';
+  lastInterimText = ''; lastTranslatedInterim = '';
 }
 
 function restartRecog() {
   if (!isListening) return;
   if (recog) { recog.stop(); recog = null; }
-  setTimeout(() => { recog = buildRecog(); if (recog) try { recog.start(); } catch {} }, 300);
+  setTimeout(() => {
+    recog = buildRecog();
+    if (recog) try { recog.start(); } catch {}
+  }, 300);
 }
 
 listenBtn.addEventListener('click', () => isListening ? stopListening() : startListening());
@@ -270,14 +334,14 @@ saveBtn.addEventListener('click', () => {
   if (!pairs.length) return;
   const src = srcLang.options[srcLang.selectedIndex].text;
   const tgt = tgtLang.options[tgtLang.selectedIndex].text;
-  const header = `TikTok Live Translator\n${new Date().toLocaleString()}\n${src} → ${tgt}\n${'─'.repeat(40)}\n\n`;
+  const header = `TikTok Live Translator\n${new Date().toLocaleString()}\n${src} to ${tgt}\n${'-'.repeat(40)}\n\n`;
   const body = pairs.map((p, i) => `[${String(i+1).padStart(3,'0')}] ${p.time}\n  ${p.orig}\n  ${p.trans}`).join('\n\n');
   const blob = new Blob([header + body], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `tt-${Date.now()}.txt`; a.click();
 });
 
-// Wake lock - keep screen on
+// Wake lock
 let wakeLock = null;
 async function requestWakeLock() {
   if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
